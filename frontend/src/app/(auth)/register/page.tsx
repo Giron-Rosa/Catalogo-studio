@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, KeyRound, Copy, Check } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +15,44 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestedPassword, setSuggestedPassword] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const generateSecurePassword = () => {
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const symbols = "@#$%&*!?";
+    const all = upper + lower + numbers + symbols;
+    let password = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      numbers[Math.floor(Math.random() * numbers.length)],
+      symbols[Math.floor(Math.random() * symbols.length)],
+    ];
+    for (let i = 4; i < 14; i++) {
+      password.push(all[Math.floor(Math.random() * all.length)]);
+    }
+    return password.sort(() => Math.random() - 0.5).join("");
+  };
+
+  const handleShowSuggestion = () => {
+    setSuggestedPassword(generateSecurePassword());
+    setShowSuggestion(true);
+  };
+
+  const handleUsePassword = () => {
+    setFormData({ ...formData, password: suggestedPassword });
+    setShowPassword(true);
+    setShowSuggestion(false);
+  };
+
+  const handleCopySuggestion = () => {
+    navigator.clipboard.writeText(suggestedPassword);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -128,6 +166,53 @@ export default function RegisterPage() {
                   <Eye className="h-5 w-5" />
                 )}
               </button>
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={handleShowSuggestion}
+                className="mt-2 flex items-center gap-2 text-sm text-[#895D2B] hover:text-[#482E1D] transition font-medium"
+              >
+                <KeyRound className="h-4 w-4" />
+                Usar contraseña segura
+              </button>
+
+              {showSuggestion && (
+                <div className="mt-2 p-3 bg-[#F0DAAE] border border-[#A3966A] rounded-lg">
+                  <p className="text-xs text-[#895D2B] font-medium mb-1">Contraseña sugerida:</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="text-sm text-[#482E1D] font-mono break-all flex-1">
+                      {suggestedPassword}
+                    </code>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleCopySuggestion}
+                        className="p-1.5 rounded hover:bg-[#895D2B] hover:text-white text-[#895D2B] transition"
+                        title="Copiar"
+                      >
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={handleUsePassword}
+                      className="flex-1 py-1.5 text-xs bg-[#482E1D] text-[#F0DAAE] font-bold rounded hover:bg-[#895D2B] transition"
+                    >
+                      Usar esta contraseña
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSuggestedPassword(generateSecurePassword())}
+                      className="flex-1 py-1.5 text-xs border border-[#895D2B] text-[#895D2B] font-medium rounded hover:bg-[#895D2B] hover:text-white transition"
+                    >
+                      Generar otra
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-1 ml-1">Mínimo 6 caracteres</p>
           </div>
