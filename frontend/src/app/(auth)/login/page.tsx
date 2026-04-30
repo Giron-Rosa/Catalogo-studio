@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
@@ -25,46 +27,39 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const MicrosoftIcon = () => (
-  <svg viewBox="0 0 21 21" className="w-5 h-5" aria-hidden="true">
-    <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-    <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-    <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-    <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-  </svg>
-);
-
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const registered = searchParams.get("registered");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      // TODO: implementar autenticación con Supabase
-      // const { error } = await supabase.auth.signInWithPassword({ email: username, password });
-      // if (error) throw error;
-      // router.push("/dashboard");
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      router.push("/dashboard");
+      router.refresh();
     } catch {
-      setError("Usuario o contraseña incorrectos.");
+      setError("Correo o contraseña incorrectos.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    // TODO: implementar OAuth con Google via Supabase
-    // await supabase.auth.signInWithOAuth({ provider: "google" });
-  };
-
-  const handleOutlookLogin = async () => {
-    // TODO: implementar OAuth con Microsoft/Outlook via Supabase
-    // await supabase.auth.signInWithOAuth({ provider: "azure" });
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   };
 
   return (
@@ -74,6 +69,12 @@ export default function LoginPage() {
           Login
         </h1>
 
+        {registered && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm text-center">
+            ¡Cuenta creada! Revisa tu correo para confirmarla.
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
             {error}
@@ -81,20 +82,20 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
-          {/* Username */}
+          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-[#895D2B] mb-1">
-              Username
+              Correo electrónico
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-[#A3966A]" />
+                <Mail className="h-5 w-5 text-[#A3966A]" />
               </div>
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ingrese su usuario"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Ingrese su correo"
                 className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] focus:border-transparent text-[#482E1D] placeholder-gray-400 transition"
                 required
               />
@@ -175,25 +176,15 @@ export default function LoginPage() {
         </div>
 
         {/* Social login buttons */}
-        <div className="flex justify-center gap-5">
+        <div className="flex justify-center">
           <button
             type="button"
             onClick={handleGoogleLogin}
-            className="flex items-center justify-center w-13 h-13 w-12 h-12 rounded-full bg-white border-2 border-[#F0DAAE] hover:border-[#895D2B] shadow-md hover:shadow-lg transition-all duration-200"
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-white border-2 border-[#F0DAAE] hover:border-[#895D2B] shadow-md hover:shadow-lg transition-all duration-200"
             title="Ingresar con Google"
             aria-label="Ingresar con Google"
           >
             <GoogleIcon />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOutlookLogin}
-            className="flex items-center justify-center w-12 h-12 rounded-full bg-white border-2 border-[#F0DAAE] hover:border-[#895D2B] shadow-md hover:shadow-lg transition-all duration-200"
-            title="Ingresar con Outlook"
-            aria-label="Ingresar con Outlook / Microsoft"
-          >
-            <MicrosoftIcon />
           </button>
         </div>
       </div>

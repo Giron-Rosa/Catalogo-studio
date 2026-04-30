@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -15,14 +16,14 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
     try {
-      // TODO: implementar recuperación de contraseña con Supabase
-      // const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      //   redirectTo: `${window.location.origin}/reset-password`,
-      // });
-      // if (error) throw error;
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      if (error) throw error;
       setSent(true);
     } catch {
-      setError("No se pudo enviar el correo. Intente nuevamente.");
+      setError("No se pudo enviar el correo. Verifica que el email sea correcto.");
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Mail, Lock, Eye, EyeOff, KeyRound, Copy, Check } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -63,16 +64,21 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      // TODO: implementar registro con Supabase
-      // const { error } = await supabase.auth.signUp({
-      //   email: formData.email,
-      //   password: formData.password,
-      //   options: { data: { username: formData.username } },
-      // });
-      // if (error) throw error;
-      router.push("/login");
-    } catch {
-      setError("Error al crear la cuenta. Intente nuevamente.");
+      const supabase = createClient();
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: { data: { username: formData.username, full_name: formData.username } },
+      });
+      if (error) throw error;
+      router.push("/login?registered=true");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("already registered") || message.includes("already been registered")) {
+        setError("Este correo ya está registrado.");
+      } else {
+        setError("Error al crear la cuenta. Intente nuevamente.");
+      }
     } finally {
       setLoading(false);
     }
