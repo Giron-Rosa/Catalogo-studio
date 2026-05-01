@@ -175,6 +175,7 @@ function SectionCatalogos() {
                     <Pencil className="w-3.5 h-3.5" /> Editar
                   </button>
                   <button
+                    onClick={() => router.push(`/dashboard/catalogo/${cat.id}/ver`)}
                     className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium text-white bg-[#895D2B] rounded-lg hover:bg-[#482E1D] transition"
                   >
                     <Download className="w-3.5 h-3.5" /> PDF
@@ -259,6 +260,7 @@ function SectionCatalogos() {
                 <Pencil className="w-4 h-4" /> Editar catálogo
               </button>
               <button
+                onClick={() => { closeModal(); router.push(`/dashboard/catalogo/${viewingCatalog.id}/ver`); }}
                 className="flex items-center gap-2 px-4 py-2 bg-[#895D2B] text-white rounded-lg hover:bg-[#482E1D] transition text-sm"
               >
                 <Download className="w-4 h-4" /> Descargar PDF
