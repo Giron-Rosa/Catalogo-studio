@@ -110,7 +110,7 @@ export default function VerCatalogoPage() {
           .no-print { display: none !important; }
           body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .catalog-page { box-shadow: none !important; }
-          .page-break { page-break-before: always; }
+          .avoid-break { page-break-inside: avoid; break-inside: avoid; }
         }
         @page { size: A4; margin: 0; }
       `}</style>
@@ -167,8 +167,8 @@ export default function VerCatalogoPage() {
             </div>
           )}
 
-          {/* ── PAGE 2+: Products ── */}
-          <div className="page-break px-10 py-10">
+          {/* ── Products ── */}
+          <div className="px-10 py-10">
             <h2 className="text-3xl font-bold text-center mb-8" style={{ color: primary }}>"{ catalogo.nombre}"</h2>
 
             {productos.length === 0 ? (
@@ -176,7 +176,7 @@ export default function VerCatalogoPage() {
             ) : template === "elegante" ? (
               <div className="space-y-10">
                 {productos.map((p, i) => (
-                  <div key={p.id} className={`flex gap-8 items-center ${i % 2 === 1 ? "flex-row-reverse" : ""}`}>
+                  <div key={p.id} className={`avoid-break flex gap-8 items-center ${i % 2 === 1 ? "flex-row-reverse" : ""}`}>
                     <div className="w-5/12 shrink-0">
                       {p.foto_url ? (
                         <img src={p.foto_url} alt={p.nombre} className="w-full h-56 object-cover rounded-xl" />
@@ -196,7 +196,7 @@ export default function VerCatalogoPage() {
             ) : (
               <div className={`grid ${gridClass[template] ?? "grid-cols-2"} gap-5`}>
                 {productos.map((p) => (
-                  <div key={p.id} className="rounded-xl overflow-hidden border" style={{ borderColor: accent }}>
+                  <div key={p.id} className="avoid-break rounded-xl overflow-hidden border" style={{ borderColor: accent }}>
                     {p.foto_url ? (
                       <img src={p.foto_url} alt={p.nombre} className={`w-full object-cover ${template === "compacto" ? "h-24" : "h-48"}`} />
                     ) : (
@@ -214,12 +214,12 @@ export default function VerCatalogoPage() {
             )}
           </div>
 
-          {/* ── AUTHORS PAGE ── */}
+          {/* ── AUTHORS ── */}
           {autores.length > 0 && (
-            <div className="page-break px-10 py-10 bg-[#FDFAF5]">
+            <div className="px-10 py-10 bg-[#FDFAF5]">
               <div className="space-y-10">
                 {autores.map((autor, i) => (
-                  <div key={i} className={`flex gap-8 items-start ${i % 2 === 1 ? "flex-row-reverse" : ""}`}>
+                  <div key={i} className={`avoid-break flex gap-8 items-start ${i % 2 === 1 ? "flex-row-reverse" : ""}`}>
                     {autor.foto_url ? (
                       <img
                         src={autor.foto_url}
@@ -252,7 +252,7 @@ export default function VerCatalogoPage() {
 
           {/* ── FINAL / CONTACT PAGE ── */}
           <div
-            className="page-break px-12 py-10"
+            className="px-12 py-10"
             style={{ background: accent }}
           >
             <div className="flex items-start gap-10">
