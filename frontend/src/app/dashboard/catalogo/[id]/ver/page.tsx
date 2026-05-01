@@ -6,12 +6,24 @@ import { createClient } from "@/lib/supabase";
 import { ArrowLeft, Printer } from "lucide-react";
 
 type Contacto = { telefono?: string; email?: string; web?: string };
+type AutorData = {
+  nombre: string;
+  ciudad: string;
+  descripcion: string;
+  mensaje: string;
+  foto_url: string | null;
+};
 type Catalogo = {
   id: string;
   nombre: string;
   nombre_negocio: string;
   logo_url: string | null;
   contacto: Contacto | null;
+  nombre_contacto: string | null;
+  descripcion: string | null;
+  ubicacion: string | null;
+  foto_final_url: string | null;
+  autores: AutorData[];
   colores: string[];
   plantilla_id: string;
   estado: string;
@@ -88,19 +100,19 @@ export default function VerCatalogoPage() {
     editorial: "grid-cols-3",
   };
 
+  const autores: AutorData[] = Array.isArray(catalogo.autores) ? catalogo.autores : [];
+
   return (
     <>
       {/* Print styles */}
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { margin: 0; }
+          body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .catalog-page { box-shadow: none !important; }
+          .avoid-break { page-break-inside: avoid; break-inside: avoid; }
         }
-        @page {
-          size: A4;
-          margin: 0;
-        }
+        @page { size: A4; margin: 0; }
       `}</style>
 
       {/* Toolbar (hidden on print) */}
@@ -123,136 +135,117 @@ export default function VerCatalogoPage() {
       </div>
 
       {/* Catalog content */}
-      <div className="min-h-screen bg-gray-100 pt-16 pb-12 no-print-padding">
-        <div
-          className="catalog-page bg-white max-w-4xl mx-auto shadow-2xl"
-          style={{ minHeight: "297mm" }}
-        >
-          {/* Header */}
+      <div className="min-h-screen bg-gray-100 pt-16 pb-12">
+        <div className="catalog-page bg-white max-w-4xl mx-auto shadow-2xl">
+
+          {/* ── PAGE 1: Header + Description ── */}
           <div
-            className="relative px-12 py-10"
+            className="px-12 py-10"
             style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-start gap-6">
+              {catalogo.logo_url && (
+                <img src={catalogo.logo_url} alt="Logo" className="h-16 w-16 object-contain rounded bg-white/20 p-1" />
+              )}
               <div className="text-white">
-                {catalogo.logo_url && (
-                  <img
-                    src={catalogo.logo_url}
-                    alt="Logo"
-                    className="h-16 object-contain mb-4 rounded"
-                  />
-                )}
-                <p className="text-sm uppercase tracking-widest opacity-70 mb-1">
-                  {catalogo.nombre_negocio}
-                </p>
+                <p className="text-sm uppercase tracking-widest opacity-80 mb-1">{catalogo.nombre_negocio}</p>
                 <h1 className="text-4xl font-bold leading-tight">{catalogo.nombre}</h1>
               </div>
-              <div className="flex flex-col gap-2 items-end text-white/80 text-sm">
-                {catalogo.contacto?.telefono && <p>📞 {catalogo.contacto.telefono}</p>}
-                {catalogo.contacto?.email && <p>✉ {catalogo.contacto.email}</p>}
-                {catalogo.contacto?.web && <p>🌐 {catalogo.contacto.web}</p>}
-              </div>
             </div>
-            {/* Color palette strip */}
             <div className="flex gap-1 mt-6">
               {catalogo.colores?.map((c, i) => (
-                <div key={i} className="h-1 flex-1 rounded-full opacity-60" style={{ background: c }} />
+                <div key={i} className="h-1 flex-1 rounded-full opacity-50" style={{ background: c }} />
               ))}
             </div>
           </div>
 
-          {/* Products section */}
-          <div className="px-10 py-8">
+          {/* Description */}
+          {catalogo.descripcion && (
+            <div className="px-12 py-8 bg-white border-b border-gray-100">
+              <p className="text-xs uppercase tracking-widest mb-2" style={{ color: primary }}>"Descripción de la empresa"</p>
+              <p className="text-gray-700 text-sm leading-relaxed max-w-2xl">{catalogo.descripcion}</p>
+            </div>
+          )}
+
+          {/* ── Products ── */}
+          <div className="px-10 py-10">
+            <h2 className="text-3xl font-bold text-center mb-8" style={{ color: primary }}>"{ catalogo.nombre}"</h2>
+
             {productos.length === 0 ? (
               <p className="text-center text-gray-400 py-16">Este catálogo no tiene productos.</p>
             ) : template === "elegante" ? (
-              /* Elegant: alternating image/text */
-              <div className="space-y-8">
+              <div className="space-y-10">
                 {productos.map((p, i) => (
-                  <div
-                    key={p.id}
-                    className={`flex gap-6 items-center ${i % 2 === 1 ? "flex-row-reverse" : ""}`}
-                  >
-                    <div className="w-1/2 shrink-0">
+                  <div key={p.id} className={`avoid-break flex gap-8 items-center ${i % 2 === 1 ? "flex-row-reverse" : ""}`}>
+                    <div className="w-5/12 shrink-0">
                       {p.foto_url ? (
-                        <img
-                          src={p.foto_url}
-                          alt={p.nombre}
-                          className="w-full h-56 object-cover rounded-xl"
-                        />
+                        <img src={p.foto_url} alt={p.nombre} className="w-full h-56 object-cover rounded-xl" />
                       ) : (
-                        <div
-                          className="w-full h-56 rounded-xl flex items-center justify-center text-4xl"
-                          style={{ background: accent }}
-                        >
-                          📦
-                        </div>
+                        <div className="w-full h-56 rounded-xl flex items-center justify-center text-4xl" style={{ background: accent }}>📦</div>
                       )}
                     </div>
                     <div className="flex-1">
-                      {p.categoria && (
-                        <p className="text-xs uppercase tracking-wider mb-1" style={{ color: primary }}>
-                          {p.categoria}
-                        </p>
-                      )}
-                      <h3 className="text-xl font-bold mb-2" style={{ color: secondary }}>{p.nombre}</h3>
-                      {p.descripcion && (
-                        <p className="text-gray-500 text-sm leading-relaxed mb-3">{p.descripcion}</p>
-                      )}
-                      {p.precio != null && (
-                        <p className="text-2xl font-bold" style={{ color: primary }}>
-                          ${p.precio.toLocaleString("es-MX")}
-                        </p>
-                      )}
+                      {p.categoria && <p className="text-xs uppercase tracking-wider mb-1" style={{ color: primary }}>{p.categoria}</p>}
+                      <h3 className="text-2xl font-bold mb-2" style={{ color: secondary }}>{p.nombre}</h3>
+                      {p.descripcion && <p className="text-gray-500 text-sm leading-relaxed mb-3">{p.descripcion}</p>}
+                      {p.precio != null && <p className="text-2xl font-bold" style={{ color: primary }}>${p.precio.toLocaleString("es-MX")}</p>}
                     </div>
                   </div>
                 ))}
               </div>
+            ) : template === "editorial" ? (
+              <div className="space-y-5">
+                {productos[0] && (
+                  <div className="avoid-break relative rounded-xl overflow-hidden">
+                    {productos[0].foto_url ? (
+                      <img src={productos[0].foto_url} alt={productos[0].nombre} className="w-full h-72 object-cover" />
+                    ) : (
+                      <div className="w-full h-72 flex items-center justify-center text-6xl" style={{ background: accent }}>📦</div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 p-6" style={{ background: `linear-gradient(to top, ${secondary}DD, transparent)` }}>
+                      {productos[0].categoria && <p className="text-white/70 text-xs uppercase tracking-widest mb-1">{productos[0].categoria}</p>}
+                      <h3 className="text-white text-2xl font-bold">{productos[0].nombre}</h3>
+                      <div className="flex items-end justify-between mt-1">
+                        {productos[0].descripcion && <p className="text-white/80 text-sm max-w-md line-clamp-2">{productos[0].descripcion}</p>}
+                        {productos[0].precio != null && <p className="text-white text-xl font-bold shrink-0 ml-4">${productos[0].precio.toLocaleString("es-MX")}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {productos.length > 1 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {productos.slice(1).map((p) => (
+                      <div key={p.id} className="avoid-break rounded-xl overflow-hidden border" style={{ borderColor: accent }}>
+                        {p.foto_url ? (
+                          <img src={p.foto_url} alt={p.nombre} className="w-full h-40 object-cover" />
+                        ) : (
+                          <div className="w-full h-40 flex items-center justify-center text-3xl" style={{ background: accent }}>📦</div>
+                        )}
+                        <div className="p-3">
+                          {p.categoria && <p className="text-xs uppercase tracking-wide mb-0.5" style={{ color: primary }}>{p.categoria}</p>}
+                          <p className="font-bold text-sm" style={{ color: secondary }}>{p.nombre}</p>
+                          {p.descripcion && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{p.descripcion}</p>}
+                          {p.precio != null && <p className="text-base font-bold mt-1" style={{ color: primary }}>${p.precio.toLocaleString("es-MX")}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
-              /* Grid templates: clasico, moderno, compacto, editorial */
               <div className={`grid ${gridClass[template] ?? "grid-cols-2"} gap-5`}>
                 {productos.map((p) => (
-                  <div
-                    key={p.id}
-                    className="rounded-xl overflow-hidden border"
-                    style={{ borderColor: accent }}
-                  >
+                  <div key={p.id} className="avoid-break rounded-xl overflow-hidden border" style={{ borderColor: accent }}>
                     {p.foto_url ? (
-                      <img
-                        src={p.foto_url}
-                        alt={p.nombre}
-                        className={`w-full object-cover ${
-                          template === "compacto" ? "h-24" : "h-44"
-                        }`}
-                      />
+                      <img src={p.foto_url} alt={p.nombre} className={`w-full object-cover ${template === "compacto" ? "h-24" : "h-48"}`} />
                     ) : (
-                      <div
-                        className={`w-full flex items-center justify-center text-3xl ${
-                          template === "compacto" ? "h-24" : "h-44"
-                        }`}
-                        style={{ background: accent }}
-                      >
-                        📦
-                      </div>
+                      <div className={`w-full flex items-center justify-center text-3xl ${template === "compacto" ? "h-24" : "h-48"}`} style={{ background: accent }}>📦</div>
                     )}
                     <div className="p-3">
-                      {p.categoria && (
-                        <p
-                          className="text-xs uppercase tracking-wide mb-0.5"
-                          style={{ color: primary }}
-                        >
-                          {p.categoria}
-                        </p>
-                      )}
+                      {p.categoria && <p className="text-xs uppercase tracking-wide mb-0.5" style={{ color: primary }}>{p.categoria}</p>}
                       <p className="font-bold text-sm" style={{ color: secondary }}>{p.nombre}</p>
-                      {p.descripcion && template !== "compacto" && (
-                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{p.descripcion}</p>
-                      )}
-                      {p.precio != null && (
-                        <p className="text-base font-bold mt-1" style={{ color: primary }}>
-                          ${p.precio.toLocaleString("es-MX")}
-                        </p>
-                      )}
+                      {p.descripcion && template !== "compacto" && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{p.descripcion}</p>}
+                      {p.precio != null && <p className="text-base font-bold mt-1" style={{ color: primary }}>${p.precio.toLocaleString("es-MX")}</p>}
                     </div>
                   </div>
                 ))}
@@ -260,19 +253,91 @@ export default function VerCatalogoPage() {
             )}
           </div>
 
-          {/* Footer */}
-          <div
-            className="px-12 py-4 flex items-center justify-between text-white text-xs"
-            style={{ background: secondary }}
-          >
-            <span>{catalogo.nombre_negocio}</span>
-            <div className="flex gap-1">
-              {catalogo.colores?.map((c, i) => (
-                <div key={i} className="w-3 h-3 rounded-full" style={{ background: c }} />
-              ))}
+          {/* ── AUTHORS ── */}
+          {autores.length > 0 && (
+            <div className="px-10 py-10 bg-[#FDFAF5]">
+              <div className="space-y-10">
+                {autores.map((autor, i) => (
+                  <div key={i} className={`avoid-break flex gap-8 items-start ${i % 2 === 1 ? "flex-row-reverse" : ""}`}>
+                    {autor.foto_url ? (
+                      <img
+                        src={autor.foto_url}
+                        alt={autor.nombre}
+                        className="w-36 h-36 object-cover rounded-lg shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-36 h-36 rounded-lg shrink-0 flex items-center justify-center text-4xl"
+                        style={{ background: accent }}
+                      >👤</div>
+                    )}
+                    <div className="flex-1 pt-2">
+                      <h3 className="text-2xl font-bold mb-0.5" style={{ color: primary }}>{autor.nombre}</h3>
+                      {autor.ciudad && (
+                        <p className="text-sm italic text-gray-500 mb-3">{autor.ciudad}</p>
+                      )}
+                      {autor.descripcion && (
+                        <p className="text-xs text-gray-600 leading-relaxed mb-4">{autor.descripcion}</p>
+                      )}
+                      {autor.mensaje && (
+                        <p className="text-sm font-medium italic" style={{ color: secondary }}>"{ autor.mensaje}"</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <span>{catalogo.nombre}</span>
+          )}
+
+          {/* ── FINAL / CONTACT PAGE ── */}
+          <div
+            className="px-12 py-10"
+            style={{ background: accent }}
+          >
+            <div className="flex items-start gap-10">
+              <div className="flex-1">
+                <p className="text-4xl font-bold mb-1" style={{ color: secondary }}>Catálogo</p>
+                <p className="text-lg font-medium mb-6" style={{ color: primary }}>"{ catalogo.nombre_negocio}"</p>
+                {catalogo.foto_final_url && (
+                  <img
+                    src={catalogo.foto_final_url}
+                    alt="Producto destacado"
+                    className="w-40 h-40 object-cover rounded-xl shadow"
+                  />
+                )}
+              </div>
+              <div className="flex-1 pt-2">
+                <p className="text-sm font-semibold mb-3" style={{ color: secondary }}>Encuéntranos como</p>
+                <div className="space-y-1.5 text-sm" style={{ color: secondary }}>
+                  {catalogo.nombre_contacto && (
+                    <p>Nombre Contacto: <span className="font-medium">{catalogo.nombre_contacto}</span></p>
+                  )}
+                  {catalogo.contacto?.telefono && (
+                    <p>Teléfono: <span className="font-medium">{catalogo.contacto.telefono}</span></p>
+                  )}
+                  {catalogo.contacto?.email && (
+                    <p>Correo: <span className="font-medium">{catalogo.contacto.email}</span></p>
+                  )}
+                  {catalogo.contacto?.web && (
+                    <p>Web / Instagram: <span className="font-medium">{catalogo.contacto.web}</span></p>
+                  )}
+                  {catalogo.ubicacion && (
+                    <p>Ubicación: <span className="font-medium">"{catalogo.ubicacion}"</span></p>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Footer strip */}
+            <div className="mt-8 pt-4 border-t flex items-center justify-between" style={{ borderColor: primary + "40" }}>
+              <div className="flex gap-1">
+                {catalogo.colores?.map((c, i) => (
+                  <div key={i} className="w-4 h-4 rounded-full" style={{ background: c }} />
+                ))}
+              </div>
+              <span className="text-xs" style={{ color: secondary }}>{catalogo.nombre_negocio} · {catalogo.nombre}</span>
+            </div>
           </div>
+
         </div>
       </div>
     </>

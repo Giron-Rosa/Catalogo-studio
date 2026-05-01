@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import {
   ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload, X,
-  Building2, Phone, Mail, Globe,
+  Building2, Phone, Mail, Globe, MapPin, UserRound,
 } from "lucide-react";
 
 const PLANTILLAS = [
@@ -105,6 +105,14 @@ function PlantillaPreview({ id, active }: { id: string; active: boolean }) {
 }
 
 type Contacto = { telefono: string; email: string; web: string };
+type Autor = {
+  nombre: string;
+  ciudad: string;
+  descripcion: string;
+  mensaje: string;
+  foto: File | null;
+  fotoPreview: string;
+};
 type Producto = {
   nombre: string;
   categoria: string;
@@ -118,6 +126,11 @@ type FormData = {
   logo: File | null;
   logoPreview: string;
   contacto: Contacto;
+  nombreContacto: string;
+  descripcionNegocio: string;
+  ubicacion: string;
+  fotoFinal: File | null;
+  fotoFinalPreview: string;
   nombreCatalogo: string;
   colores: string[];
   plantillaId: string;
@@ -126,27 +139,85 @@ type FormData = {
 const EMPTY_PRODUCTO: Producto = {
   nombre: "", categoria: "", descripcion: "", precio: "", foto: null, fotoPreview: "",
 };
+const EMPTY_AUTOR: Autor = {
+  nombre: "", ciudad: "", descripcion: "", mensaje: "", foto: null, fotoPreview: "",
+};
+
+const PALETAS_TEMPORADA = [
+  {
+    id: "primavera",
+    nombre: "Primavera",
+    colores: [
+      { nombre: "Olive Petal",    hex: "#A8B566" },
+      { nombre: "Golden Clover",  hex: "#C4C96A" },
+      { nombre: "Artic Daisy",    hex: "#F0F4DC" },
+      { nombre: "Rose Blush",     hex: "#C9A8B0" },
+      { nombre: "Peach Blossom",  hex: "#E8B898" },
+    ],
+  },
+  {
+    id: "verano",
+    nombre: "Verano",
+    colores: [
+      { nombre: "Marine",  hex: "#2B7A9E" },
+      { nombre: "Piscine", hex: "#7BBAC5" },
+      { nombre: "Sable",   hex: "#F0D890" },
+      { nombre: "Chili",   hex: "#CF5B2C" },
+      { nombre: "Melon",   hex: "#F07840" },
+    ],
+  },
+  {
+    id: "otoño",
+    nombre: "Otoño",
+    colores: [
+      { nombre: "Espresso",   hex: "#482E1D" },
+      { nombre: "Caramel",    hex: "#895D2B" },
+      { nombre: "Leafy",      hex: "#A3966A" },
+      { nombre: "Sand Storm", hex: "#F0DAAE" },
+      { nombre: "Cinammon",   hex: "#90553C" },
+    ],
+  },
+  {
+    id: "invierno",
+    nombre: "Invierno",
+    colores: [
+      { nombre: "Moonlight",   hex: "#F0ECDD" },
+      { nombre: "Frost Blue",  hex: "#8BA3C5" },
+      { nombre: "Steel",       hex: "#49587D" },
+      { nombre: "Storm",       hex: "#23354D" },
+      { nombre: "Oxford Blue", hex: "#02122F" },
+    ],
+  },
+];
 
 const STEP_LABELS = ["Negocio", "Catálogo", "Productos"];
 
 export default function NuevoCatalogoPage() {
   const router = useRouter();
   const logoRef = useRef<HTMLInputElement>(null);
+  const fotoFinalRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paletaAbierta, setPaletaAbierta] = useState<string | null>("otoño");
 
   const [form, setForm] = useState<FormData>({
     nombreNegocio: "",
     logo: null,
     logoPreview: "",
     contacto: { telefono: "", email: "", web: "" },
+    nombreContacto: "",
+    descripcionNegocio: "",
+    ubicacion: "",
+    fotoFinal: null,
+    fotoFinalPreview: "",
     nombreCatalogo: "",
-    colores: ["#482E1D", "#895D2B", "#F0DAAE"],
+    colores: ["#482E1D", "#895D2B", "#A3966A", "#F0DAAE", "#90553C"],
     plantillaId: "clasico",
   });
 
   const [productos, setProductos] = useState<Producto[]>([{ ...EMPTY_PRODUCTO }]);
+  const [autores, setAutores] = useState<Autor[]>([]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -154,19 +225,19 @@ export default function NuevoCatalogoPage() {
     setForm({ ...form, logo: file, logoPreview: URL.createObjectURL(file) });
   };
 
-  const handleColorChange = (index: number, value: string) => {
-    const updated = [...form.colores];
-    updated[index] = value;
-    setForm({ ...form, colores: updated });
+  const toggleColor = (hex: string) => {
+    setForm(f => {
+      const existing = f.colores;
+      if (existing.includes(hex)) {
+        return existing.length > 1 ? { ...f, colores: existing.filter(c => c !== hex) } : f;
+      }
+      return { ...f, colores: [...existing, hex] };
+    });
   };
 
-  const addColor = () => {
-    if (form.colores.length < 4) setForm({ ...form, colores: [...form.colores, "#A3966A"] });
-  };
-
-  const removeColor = (index: number) => {
-    if (form.colores.length <= 1) return;
-    setForm({ ...form, colores: form.colores.filter((_, i) => i !== index) });
+  const selectPaleta = (paleta: typeof PALETAS_TEMPORADA[0]) => {
+    setPaletaAbierta(paleta.id);
+    setForm(f => ({ ...f, colores: paleta.colores.map(c => c.hex) }));
   };
 
   const handleProductoChange = (index: number, field: keyof Producto, value: string) => {
@@ -187,6 +258,23 @@ export default function NuevoCatalogoPage() {
   const removeProducto = (index: number) => {
     if (productos.length === 1) return;
     setProductos(productos.filter((_, i) => i !== index));
+  };
+
+  const handleFotoFinalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setForm(f => ({ ...f, fotoFinal: file, fotoFinalPreview: URL.createObjectURL(file) }));
+  };
+
+  const addAutor = () => setAutores(a => [...a, { ...EMPTY_AUTOR }]);
+  const removeAutor = (index: number) => setAutores(a => a.filter((_, i) => i !== index));
+  const updateAutor = (index: number, field: keyof Omit<Autor, "foto" | "fotoPreview">, value: string) => {
+    setAutores(a => a.map((au, i) => i === index ? { ...au, [field]: value } : au));
+  };
+  const handleAutorFoto = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAutores(a => a.map((au, i) => i === index ? { ...au, foto: file, fotoPreview: URL.createObjectURL(file) } : au));
   };
 
   const canNext = () => {
@@ -222,6 +310,19 @@ export default function NuevoCatalogoPage() {
         logoUrl = await uploadFile(supabase, form.logo, `${uid}/logos/logo_${ts}`);
       }
 
+      let fotoFinalUrl: string | null = null;
+      if (form.fotoFinal) {
+        fotoFinalUrl = await uploadFile(supabase, form.fotoFinal, `${uid}/final/foto_final_${ts}`);
+      }
+
+      const autoresData = await Promise.all(autores.map(async (a, i) => {
+        let fotoUrl: string | null = null;
+        if (a.foto) {
+          fotoUrl = await uploadFile(supabase, a.foto, `${uid}/autores/autor_${i}_${ts}`);
+        }
+        return { nombre: a.nombre, ciudad: a.ciudad, descripcion: a.descripcion, mensaje: a.mensaje, foto_url: fotoUrl };
+      }));
+
       const { data: catalogo, error: catError } = await supabase
         .from("catalogos")
         .insert({
@@ -230,6 +331,11 @@ export default function NuevoCatalogoPage() {
           nombre_negocio: form.nombreNegocio,
           logo_url: logoUrl,
           contacto: form.contacto,
+          nombre_contacto: form.nombreContacto || null,
+          descripcion: form.descripcionNegocio || null,
+          ubicacion: form.ubicacion || null,
+          foto_final_url: fotoFinalUrl,
+          autores: autoresData,
           colores: form.colores,
           plantilla_id: form.plantillaId,
           estado: "borrador",
@@ -302,7 +408,7 @@ export default function NuevoCatalogoPage() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* STEP 1 */}
           {step === 1 && (
-            <div className="space-y-5">
+            <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
               <h2 className="text-xl font-bold text-[#482E1D] mb-4">Información del negocio</h2>
 
               <div>
@@ -348,6 +454,45 @@ export default function NuevoCatalogoPage() {
                 <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Nombre del contacto <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div className="relative">
+                  <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3966A]" />
+                  <input
+                    type="text"
+                    value={form.nombreContacto}
+                    onChange={e => setForm({ ...form, nombreContacto: e.target.value })}
+                    placeholder="Ej: Andrea Lurita"
+                    className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Descripción breve <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <textarea
+                  value={form.descripcionNegocio}
+                  onChange={e => setForm({ ...form, descripcionNegocio: e.target.value })}
+                  placeholder="Describe brevemente tu empresa o negocio..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Ubicación <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3966A]" />
+                  <input
+                    type="text"
+                    value={form.ubicacion}
+                    onChange={e => setForm({ ...form, ubicacion: e.target.value })}
+                    placeholder="Ej: Lima, Perú · SJL-Lima, Perú"
+                    className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-3">
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3966A]" />
@@ -380,6 +525,68 @@ export default function NuevoCatalogoPage() {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">
+                  Foto para el final del catálogo <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <div
+                  onClick={() => fotoFinalRef.current?.click()}
+                  className="border-2 border-dashed border-[#A3966A] rounded-xl p-5 text-center cursor-pointer hover:border-[#895D2B] transition"
+                >
+                  {form.fotoFinalPreview ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <img src={form.fotoFinalPreview} alt="Foto final" className="h-20 object-contain rounded" />
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setForm({ ...form, fotoFinal: null, fotoFinalPreview: "" }); }}
+                        className="text-red-400 hover:text-red-600 transition"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-[#A3966A]">
+                      <Upload className="w-6 h-6 mx-auto mb-1" />
+                      <p className="text-sm">Imagen de producto destacado o de la empresa</p>
+                    </div>
+                  )}
+                </div>
+                <input ref={fotoFinalRef} type="file" accept="image/*" className="hidden" onChange={handleFotoFinalChange} />
+              </div>
+
+              <div className="border-t border-[#F0DAAE] pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#482E1D]">Autores / Colaboradores</p>
+                    <p className="text-xs text-gray-400">Aparecen al final del catálogo</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addAutor}
+                    className="flex items-center gap-2 px-3 py-2 bg-[#482E1D] text-[#F0DAAE] text-xs font-bold rounded-lg hover:bg-[#895D2B] transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar Autor
+                  </button>
+                </div>
+                {autores.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-3 border border-dashed border-gray-200 rounded-lg">
+                    Sin autores. Haz clic en "Agregar Autor" para añadir.
+                  </p>
+                )}
+                <div className="space-y-4">
+                  {autores.map((autor, i) => (
+                    <AutorItem
+                      key={i}
+                      index={i}
+                      autor={autor}
+                      onUpdate={updateAutor}
+                      onFoto={handleAutorFoto}
+                      onRemove={removeAutor}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -400,36 +607,71 @@ export default function NuevoCatalogoPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#895D2B] mb-2">
-                  Paleta de colores <span className="text-gray-400 font-normal">(opcional · máx. 4)</span>
-                </label>
-                <div className="flex flex-wrap gap-3 items-center">
-                  {form.colores.map((color, i) => (
-                    <div key={i} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
-                      <input
-                        type="color"
-                        value={color}
-                        onChange={e => handleColorChange(i, e.target.value)}
-                        className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                      />
-                      <span className="text-xs text-gray-500 font-mono">{color}</span>
-                      {form.colores.length > 1 && (
-                        <button type="button" onClick={() => removeColor(i)} className="text-gray-400 hover:text-red-500 transition">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {form.colores.length < 4 && (
+                <label className="block text-sm font-medium text-[#895D2B] mb-3">Paleta de colores por temporada</label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {PALETAS_TEMPORADA.map(paleta => (
                     <button
+                      key={paleta.id}
                       type="button"
-                      onClick={addColor}
-                      className="flex items-center gap-1 text-sm text-[#895D2B] hover:text-[#482E1D] border border-dashed border-[#A3966A] rounded-lg px-3 py-2 transition"
+                      onClick={() => selectPaleta(paleta)}
+                      className={`text-left rounded-xl overflow-hidden border-2 transition-all ${
+                        paletaAbierta === paleta.id
+                          ? "border-[#895D2B] shadow-md"
+                          : "border-gray-200 hover:border-[#A3966A]"
+                      }`}
                     >
-                      <Plus className="w-4 h-4" /> Agregar
+                      <div className="flex h-8">
+                        {paleta.colores.map(c => (
+                          <div key={c.hex} className="flex-1" style={{ background: c.hex }} />
+                        ))}
+                      </div>
+                      <div className="px-3 py-2">
+                        <p className="text-sm font-semibold text-[#482E1D]">{paleta.nombre}</p>
+                      </div>
                     </button>
-                  )}
+                  ))}
                 </div>
+                {paletaAbierta && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">Selecciona los colores para tu catálogo:</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(PALETAS_TEMPORADA.find(p => p.id === paletaAbierta)?.colores ?? []).map(c => {
+                        const selected = form.colores.includes(c.hex);
+                        return (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => toggleColor(c.hex)}
+                            className={`rounded-lg overflow-hidden border-2 transition-all ${
+                              selected ? "border-[#895D2B] shadow-sm" : "border-gray-200 opacity-60"
+                            }`}
+                          >
+                            <div className="h-12 w-full" style={{ background: c.hex }} />
+                            <div className="px-1 py-1.5 bg-white text-center">
+                              <p className="text-[9px] font-semibold text-gray-700 leading-tight">{c.nombre}</p>
+                              <p className="text-[8px] font-mono text-gray-400 mt-0.5">{c.hex}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {form.colores.length > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 shrink-0">Paleta activa:</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {form.colores.map((c, i) => (
+                        <div
+                          key={i}
+                          title={c}
+                          className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                          style={{ background: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -604,6 +846,72 @@ function ProductoItem({
           placeholder="Descripción (opcional)"
           rows={2}
           className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm resize-none"
+        />
+      </div>
+    </div>
+  );
+}
+
+function AutorItem({
+  index, autor, onUpdate, onFoto, onRemove,
+}: {
+  index: number;
+  autor: Autor;
+  onUpdate: (i: number, field: keyof Omit<Autor, "foto" | "fotoPreview">, value: string) => void;
+  onFoto: (i: number, e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (i: number) => void;
+}) {
+  const fotoRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="border border-[#F0DAAE] rounded-xl p-4 bg-[#FDFAF5]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-[#895D2B]">Autor {index + 1}</span>
+        <button type="button" onClick={() => onRemove(index)} className="text-gray-400 hover:text-red-500 transition">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div
+          onClick={() => fotoRef.current?.click()}
+          className="sm:col-span-2 border-2 border-dashed border-[#A3966A] rounded-lg p-3 text-center cursor-pointer hover:border-[#895D2B] transition"
+        >
+          {autor.fotoPreview ? (
+            <img src={autor.fotoPreview} alt="Foto" className="h-20 object-cover mx-auto rounded-full aspect-square" />
+          ) : (
+            <div className="text-[#A3966A] py-1">
+              <Upload className="w-5 h-5 mx-auto mb-0.5" />
+              <p className="text-xs">Foto del autor (opcional)</p>
+            </div>
+          )}
+        </div>
+        <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={e => onFoto(index, e)} />
+        <input
+          type="text"
+          value={autor.nombre}
+          onChange={e => onUpdate(index, "nombre", e.target.value)}
+          placeholder="Nombre del autor"
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm"
+        />
+        <input
+          type="text"
+          value={autor.ciudad}
+          onChange={e => onUpdate(index, "ciudad", e.target.value)}
+          placeholder="Ciudad de origen (Ej: Lima, Perú)"
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm"
+        />
+        <textarea
+          value={autor.descripcion}
+          onChange={e => onUpdate(index, "descripcion", e.target.value)}
+          placeholder="Descripción breve del autor"
+          rows={2}
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm resize-none"
+        />
+        <input
+          type="text"
+          value={autor.mensaje}
+          onChange={e => onUpdate(index, "mensaje", e.target.value)}
+          placeholder='Mensaje corto (Ej: "Artesana de corazón")'
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm"
         />
       </div>
     </div>
