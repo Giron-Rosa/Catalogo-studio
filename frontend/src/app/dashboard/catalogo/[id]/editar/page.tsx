@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import {
   ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload, X,
-  Building2, Phone, Mail, Globe,
+  Building2, Phone, Mail, Globe, MapPin, UserRound,
 } from "lucide-react";
 
 const PLANTILLAS = [
@@ -77,6 +77,15 @@ function PlantillaPreview({ id, active }: { id: string; active: boolean }) {
 }
 
 type Contacto = { telefono: string; email: string; web: string };
+type AutorEditable = {
+  nombre: string;
+  ciudad: string;
+  descripcion: string;
+  mensaje: string;
+  foto: File | null;
+  fotoPreview: string;
+  fotoUrl: string;
+};
 type ProductoEditable = {
   id?: string;
   nombre: string;
@@ -93,6 +102,12 @@ type FormData = {
   logoPreview: string;
   logoUrl: string;
   contacto: Contacto;
+  nombreContacto: string;
+  descripcionNegocio: string;
+  ubicacion: string;
+  fotoFinal: File | null;
+  fotoFinalPreview: string;
+  fotoFinalUrl: string;
   nombreCatalogo: string;
   colores: string[];
   plantillaId: string;
@@ -105,6 +120,7 @@ export default function EditarCatalogoPage() {
   const params = useParams();
   const catalogoId = params.id as string;
   const logoRef = useRef<HTMLInputElement>(null);
+  const fotoFinalRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -118,6 +134,12 @@ export default function EditarCatalogoPage() {
     logoPreview: "",
     logoUrl: "",
     contacto: { telefono: "", email: "", web: "" },
+    nombreContacto: "",
+    descripcionNegocio: "",
+    ubicacion: "",
+    fotoFinal: null,
+    fotoFinalPreview: "",
+    fotoFinalUrl: "",
     nombreCatalogo: "",
     colores: ["#482E1D", "#895D2B", "#F0DAAE"],
     plantillaId: "clasico",
@@ -126,6 +148,7 @@ export default function EditarCatalogoPage() {
   const [productos, setProductos] = useState<ProductoEditable[]>([
     { nombre: "", categoria: "", descripcion: "", precio: "", foto: null, fotoPreview: "", fotoUrl: "" },
   ]);
+  const [autores, setAutores] = useState<AutorEditable[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -153,10 +176,28 @@ export default function EditarCatalogoPage() {
           email: contacto.email ?? "",
           web: contacto.web ?? "",
         },
+        nombreContacto: cat.nombre_contacto ?? "",
+        descripcionNegocio: cat.descripcion ?? "",
+        ubicacion: cat.ubicacion ?? "",
+        fotoFinal: null,
+        fotoFinalPreview: cat.foto_final_url ?? "",
+        fotoFinalUrl: cat.foto_final_url ?? "",
         nombreCatalogo: cat.nombre ?? "",
         colores: cat.colores ?? ["#482E1D", "#895D2B", "#F0DAAE"],
         plantillaId: cat.plantilla_id ?? "clasico",
       });
+
+      if (Array.isArray(cat.autores) && cat.autores.length > 0) {
+        setAutores(cat.autores.map((a: { nombre?: string; ciudad?: string; descripcion?: string; mensaje?: string; foto_url?: string }) => ({
+          nombre: a.nombre ?? "",
+          ciudad: a.ciudad ?? "",
+          descripcion: a.descripcion ?? "",
+          mensaje: a.mensaje ?? "",
+          foto: null,
+          fotoPreview: a.foto_url ?? "",
+          fotoUrl: a.foto_url ?? "",
+        })));
+      }
 
       const { data: prods } = await supabase
         .from("productos")
@@ -229,6 +270,24 @@ export default function EditarCatalogoPage() {
     setProductos(productos.filter((_, i) => i !== index));
   };
 
+  const handleFotoFinalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setForm(f => ({ ...f, fotoFinal: file, fotoFinalPreview: URL.createObjectURL(file) }));
+  };
+
+  const EMPTY_AUTOR: AutorEditable = { nombre: "", ciudad: "", descripcion: "", mensaje: "", foto: null, fotoPreview: "", fotoUrl: "" };
+  const addAutor = () => setAutores(a => [...a, { ...EMPTY_AUTOR }]);
+  const removeAutor = (index: number) => setAutores(a => a.filter((_, i) => i !== index));
+  const updateAutor = (index: number, field: keyof Omit<AutorEditable, "foto" | "fotoPreview" | "fotoUrl">, value: string) => {
+    setAutores(a => a.map((au, i) => i === index ? { ...au, [field]: value } : au));
+  };
+  const handleAutorFoto = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAutores(a => a.map((au, i) => i === index ? { ...au, foto: file, fotoPreview: URL.createObjectURL(file) } : au));
+  };
+
   const canNext = () => {
     if (step === 1) return form.nombreNegocio.trim() !== "";
     if (step === 2) return form.nombreCatalogo.trim() !== "";
@@ -262,6 +321,19 @@ export default function EditarCatalogoPage() {
         logoUrl = await uploadFile(supabase, form.logo, `${uid}/logos/logo_${ts}`);
       }
 
+      let fotoFinalUrl = form.fotoFinalUrl;
+      if (form.fotoFinal) {
+        fotoFinalUrl = await uploadFile(supabase, form.fotoFinal, `${uid}/final/foto_final_${ts}`);
+      }
+
+      const autoresData = await Promise.all(autores.map(async (a, i) => {
+        let fotoUrl = a.fotoUrl;
+        if (a.foto) {
+          fotoUrl = await uploadFile(supabase, a.foto, `${uid}/autores/autor_${i}_${ts}`);
+        }
+        return { nombre: a.nombre, ciudad: a.ciudad, descripcion: a.descripcion, mensaje: a.mensaje, foto_url: fotoUrl || null };
+      }));
+
       const { error: catError } = await supabase
         .from("catalogos")
         .update({
@@ -269,6 +341,11 @@ export default function EditarCatalogoPage() {
           nombre_negocio: form.nombreNegocio,
           logo_url: logoUrl || null,
           contacto: form.contacto,
+          nombre_contacto: form.nombreContacto || null,
+          descripcion: form.descripcionNegocio || null,
+          ubicacion: form.ubicacion || null,
+          foto_final_url: fotoFinalUrl || null,
+          autores: autoresData,
           colores: form.colores,
           plantilla_id: form.plantillaId,
         })
@@ -356,15 +433,13 @@ export default function EditarCatalogoPage() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* STEP 1 */}
           {step === 1 && (
-            <div className="space-y-5">
+            <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
               <h2 className="text-xl font-bold text-[#482E1D] mb-4">Información del negocio</h2>
               <div>
                 <label className="block text-sm font-medium text-[#895D2B] mb-1">Nombre del negocio *</label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3966A]" />
-                  <input
-                    type="text"
-                    value={form.nombreNegocio}
+                  <input type="text" value={form.nombreNegocio}
                     onChange={e => setForm({ ...form, nombreNegocio: e.target.value })}
                     placeholder="Ej: Mi Tienda"
                     className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400"
@@ -372,32 +447,53 @@ export default function EditarCatalogoPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#895D2B] mb-1">
-                  Logo <span className="text-gray-400 font-normal">(opcional)</span>
-                </label>
-                <div
-                  onClick={() => logoRef.current?.click()}
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Logo <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div onClick={() => logoRef.current?.click()}
                   className="border-2 border-dashed border-[#A3966A] rounded-xl p-5 text-center cursor-pointer hover:border-[#895D2B] transition"
                 >
                   {form.logoPreview ? (
                     <div className="flex items-center justify-center gap-3">
                       <img src={form.logoPreview} alt="Logo" className="h-16 object-contain rounded" />
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); setForm({ ...form, logo: null, logoPreview: "", logoUrl: "" }); }}
-                        className="text-red-400 hover:text-red-600 transition"
-                      >
+                      <button type="button" onClick={e => { e.stopPropagation(); setForm({ ...form, logo: null, logoPreview: "", logoUrl: "" }); }} className="text-red-400 hover:text-red-600 transition">
                         <X className="w-5 h-5" />
                       </button>
                     </div>
                   ) : (
-                    <div className="text-[#A3966A]">
-                      <Upload className="w-6 h-6 mx-auto mb-1" />
-                      <p className="text-sm">Subir logo</p>
-                    </div>
+                    <div className="text-[#A3966A]"><Upload className="w-6 h-6 mx-auto mb-1" /><p className="text-sm">Subir logo</p></div>
                   )}
                 </div>
                 <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Nombre del contacto <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div className="relative">
+                  <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3966A]" />
+                  <input type="text" value={form.nombreContacto}
+                    onChange={e => setForm({ ...form, nombreContacto: e.target.value })}
+                    placeholder="Ej: Andrea Lurita"
+                    className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Descripción breve <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <textarea value={form.descripcionNegocio}
+                  onChange={e => setForm({ ...form, descripcionNegocio: e.target.value })}
+                  placeholder="Describe brevemente tu empresa o negocio..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Ubicación <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3966A]" />
+                  <input type="text" value={form.ubicacion}
+                    onChange={e => setForm({ ...form, ubicacion: e.target.value })}
+                    placeholder="Ej: Lima, Perú · SJL-Lima, Perú"
+                    className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <div className="relative">
@@ -423,6 +519,47 @@ export default function EditarCatalogoPage() {
                     placeholder="Instagram o web (opcional)"
                     className="w-full pl-10 pr-4 py-3 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400"
                   />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#895D2B] mb-1">Foto para el final del catálogo <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div onClick={() => fotoFinalRef.current?.click()}
+                  className="border-2 border-dashed border-[#A3966A] rounded-xl p-5 text-center cursor-pointer hover:border-[#895D2B] transition"
+                >
+                  {form.fotoFinalPreview ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <img src={form.fotoFinalPreview} alt="Foto final" className="h-20 object-contain rounded" />
+                      <button type="button" onClick={e => { e.stopPropagation(); setForm({ ...form, fotoFinal: null, fotoFinalPreview: "", fotoFinalUrl: "" }); }} className="text-red-400 hover:text-red-600 transition">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-[#A3966A]"><Upload className="w-6 h-6 mx-auto mb-1" /><p className="text-sm">Imagen de producto destacado o de la empresa</p></div>
+                  )}
+                </div>
+                <input ref={fotoFinalRef} type="file" accept="image/*" className="hidden" onChange={handleFotoFinalChange} />
+              </div>
+              <div className="border-t border-[#F0DAAE] pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#482E1D]">Autores / Colaboradores</p>
+                    <p className="text-xs text-gray-400">Aparecen al final del catálogo</p>
+                  </div>
+                  <button type="button" onClick={addAutor}
+                    className="flex items-center gap-2 px-3 py-2 bg-[#482E1D] text-[#F0DAAE] text-xs font-bold rounded-lg hover:bg-[#895D2B] transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar Autor
+                  </button>
+                </div>
+                {autores.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-3 border border-dashed border-gray-200 rounded-lg">
+                    Sin autores. Haz clic en "Agregar Autor" para añadir.
+                  </p>
+                )}
+                <div className="space-y-4">
+                  {autores.map((autor, i) => (
+                    <AutorEditItem key={i} index={i} autor={autor} onUpdate={updateAutor} onFoto={handleAutorFoto} onRemove={removeAutor} />
+                  ))}
                 </div>
               </div>
             </div>
@@ -549,6 +686,48 @@ export default function EditarCatalogoPage() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AutorEditItem({
+  index, autor, onUpdate, onFoto, onRemove,
+}: {
+  index: number;
+  autor: AutorEditable;
+  onUpdate: (i: number, field: keyof Omit<AutorEditable, "foto" | "fotoPreview" | "fotoUrl">, value: string) => void;
+  onFoto: (i: number, e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (i: number) => void;
+}) {
+  const fotoRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="border border-[#F0DAAE] rounded-xl p-4 bg-[#FDFAF5]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-[#895D2B]">Autor {index + 1}</span>
+        <button type="button" onClick={() => onRemove(index)} className="text-gray-400 hover:text-red-500 transition">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div onClick={() => fotoRef.current?.click()}
+          className="sm:col-span-2 border-2 border-dashed border-[#A3966A] rounded-lg p-3 text-center cursor-pointer hover:border-[#895D2B] transition"
+        >
+          {autor.fotoPreview ? (
+            <img src={autor.fotoPreview} alt="Foto" className="h-20 object-cover mx-auto rounded-full aspect-square" />
+          ) : (
+            <div className="text-[#A3966A] py-1"><Upload className="w-5 h-5 mx-auto mb-0.5" /><p className="text-xs">Foto del autor (opcional)</p></div>
+          )}
+        </div>
+        <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={e => onFoto(index, e)} />
+        <input type="text" value={autor.nombre} onChange={e => onUpdate(index, "nombre", e.target.value)} placeholder="Nombre del autor"
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm" />
+        <input type="text" value={autor.ciudad} onChange={e => onUpdate(index, "ciudad", e.target.value)} placeholder="Ciudad de origen (Ej: Lima, Perú)"
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm" />
+        <textarea value={autor.descripcion} onChange={e => onUpdate(index, "descripcion", e.target.value)} placeholder="Descripción breve del autor" rows={2}
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm resize-none" />
+        <input type="text" value={autor.mensaje} onChange={e => onUpdate(index, "mensaje", e.target.value)} placeholder='Mensaje corto (Ej: "Artesana de corazón")'
+          className="sm:col-span-2 w-full px-3 py-2.5 border border-[#A3966A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#895D2B] text-[#482E1D] placeholder-gray-400 text-sm" />
       </div>
     </div>
   );
