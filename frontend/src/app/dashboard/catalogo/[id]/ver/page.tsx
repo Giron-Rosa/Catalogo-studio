@@ -193,6 +193,45 @@ export default function VerCatalogoPage() {
                   </div>
                 ))}
               </div>
+            ) : template === "editorial" ? (
+              <div className="space-y-5">
+                {productos[0] && (
+                  <div className="avoid-break relative rounded-xl overflow-hidden">
+                    {productos[0].foto_url ? (
+                      <img src={productos[0].foto_url} alt={productos[0].nombre} className="w-full h-72 object-cover" />
+                    ) : (
+                      <div className="w-full h-72 flex items-center justify-center text-6xl" style={{ background: accent }}>📦</div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 p-6" style={{ background: `linear-gradient(to top, ${secondary}DD, transparent)` }}>
+                      {productos[0].categoria && <p className="text-white/70 text-xs uppercase tracking-widest mb-1">{productos[0].categoria}</p>}
+                      <h3 className="text-white text-2xl font-bold">{productos[0].nombre}</h3>
+                      <div className="flex items-end justify-between mt-1">
+                        {productos[0].descripcion && <p className="text-white/80 text-sm max-w-md line-clamp-2">{productos[0].descripcion}</p>}
+                        {productos[0].precio != null && <p className="text-white text-xl font-bold shrink-0 ml-4">${productos[0].precio.toLocaleString("es-MX")}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {productos.length > 1 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {productos.slice(1).map((p) => (
+                      <div key={p.id} className="avoid-break rounded-xl overflow-hidden border" style={{ borderColor: accent }}>
+                        {p.foto_url ? (
+                          <img src={p.foto_url} alt={p.nombre} className="w-full h-40 object-cover" />
+                        ) : (
+                          <div className="w-full h-40 flex items-center justify-center text-3xl" style={{ background: accent }}>📦</div>
+                        )}
+                        <div className="p-3">
+                          {p.categoria && <p className="text-xs uppercase tracking-wide mb-0.5" style={{ color: primary }}>{p.categoria}</p>}
+                          <p className="font-bold text-sm" style={{ color: secondary }}>{p.nombre}</p>
+                          {p.descripcion && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{p.descripcion}</p>}
+                          {p.precio != null && <p className="text-base font-bold mt-1" style={{ color: primary }}>${p.precio.toLocaleString("es-MX")}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className={`grid ${gridClass[template] ?? "grid-cols-2"} gap-5`}>
                 {productos.map((p) => (

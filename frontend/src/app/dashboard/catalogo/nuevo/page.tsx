@@ -143,6 +143,53 @@ const EMPTY_AUTOR: Autor = {
   nombre: "", ciudad: "", descripcion: "", mensaje: "", foto: null, fotoPreview: "",
 };
 
+const PALETAS_TEMPORADA = [
+  {
+    id: "primavera",
+    nombre: "Primavera",
+    colores: [
+      { nombre: "Olive Petal",    hex: "#A8B566" },
+      { nombre: "Golden Clover",  hex: "#C4C96A" },
+      { nombre: "Artic Daisy",    hex: "#F0F4DC" },
+      { nombre: "Rose Blush",     hex: "#C9A8B0" },
+      { nombre: "Peach Blossom",  hex: "#E8B898" },
+    ],
+  },
+  {
+    id: "verano",
+    nombre: "Verano",
+    colores: [
+      { nombre: "Marine",  hex: "#2B7A9E" },
+      { nombre: "Piscine", hex: "#7BBAC5" },
+      { nombre: "Sable",   hex: "#F0D890" },
+      { nombre: "Chili",   hex: "#CF5B2C" },
+      { nombre: "Melon",   hex: "#F07840" },
+    ],
+  },
+  {
+    id: "otoño",
+    nombre: "Otoño",
+    colores: [
+      { nombre: "Espresso",   hex: "#482E1D" },
+      { nombre: "Caramel",    hex: "#895D2B" },
+      { nombre: "Leafy",      hex: "#A3966A" },
+      { nombre: "Sand Storm", hex: "#F0DAAE" },
+      { nombre: "Cinammon",   hex: "#90553C" },
+    ],
+  },
+  {
+    id: "invierno",
+    nombre: "Invierno",
+    colores: [
+      { nombre: "Moonlight",   hex: "#F0ECDD" },
+      { nombre: "Frost Blue",  hex: "#8BA3C5" },
+      { nombre: "Steel",       hex: "#49587D" },
+      { nombre: "Storm",       hex: "#23354D" },
+      { nombre: "Oxford Blue", hex: "#02122F" },
+    ],
+  },
+];
+
 const STEP_LABELS = ["Negocio", "Catálogo", "Productos"];
 
 export default function NuevoCatalogoPage() {
@@ -152,6 +199,7 @@ export default function NuevoCatalogoPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paletaAbierta, setPaletaAbierta] = useState<string | null>("otoño");
 
   const [form, setForm] = useState<FormData>({
     nombreNegocio: "",
@@ -164,7 +212,7 @@ export default function NuevoCatalogoPage() {
     fotoFinal: null,
     fotoFinalPreview: "",
     nombreCatalogo: "",
-    colores: ["#482E1D", "#895D2B", "#F0DAAE"],
+    colores: ["#482E1D", "#895D2B", "#A3966A", "#F0DAAE", "#90553C"],
     plantillaId: "clasico",
   });
 
@@ -177,19 +225,19 @@ export default function NuevoCatalogoPage() {
     setForm({ ...form, logo: file, logoPreview: URL.createObjectURL(file) });
   };
 
-  const handleColorChange = (index: number, value: string) => {
-    const updated = [...form.colores];
-    updated[index] = value;
-    setForm({ ...form, colores: updated });
+  const toggleColor = (hex: string) => {
+    setForm(f => {
+      const existing = f.colores;
+      if (existing.includes(hex)) {
+        return existing.length > 1 ? { ...f, colores: existing.filter(c => c !== hex) } : f;
+      }
+      return { ...f, colores: [...existing, hex] };
+    });
   };
 
-  const addColor = () => {
-    if (form.colores.length < 4) setForm({ ...form, colores: [...form.colores, "#A3966A"] });
-  };
-
-  const removeColor = (index: number) => {
-    if (form.colores.length <= 1) return;
-    setForm({ ...form, colores: form.colores.filter((_, i) => i !== index) });
+  const selectPaleta = (paleta: typeof PALETAS_TEMPORADA[0]) => {
+    setPaletaAbierta(paleta.id);
+    setForm(f => ({ ...f, colores: paleta.colores.map(c => c.hex) }));
   };
 
   const handleProductoChange = (index: number, field: keyof Producto, value: string) => {
@@ -559,36 +607,71 @@ export default function NuevoCatalogoPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#895D2B] mb-2">
-                  Paleta de colores <span className="text-gray-400 font-normal">(opcional · máx. 4)</span>
-                </label>
-                <div className="flex flex-wrap gap-3 items-center">
-                  {form.colores.map((color, i) => (
-                    <div key={i} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
-                      <input
-                        type="color"
-                        value={color}
-                        onChange={e => handleColorChange(i, e.target.value)}
-                        className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                      />
-                      <span className="text-xs text-gray-500 font-mono">{color}</span>
-                      {form.colores.length > 1 && (
-                        <button type="button" onClick={() => removeColor(i)} className="text-gray-400 hover:text-red-500 transition">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {form.colores.length < 4 && (
+                <label className="block text-sm font-medium text-[#895D2B] mb-3">Paleta de colores por temporada</label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {PALETAS_TEMPORADA.map(paleta => (
                     <button
+                      key={paleta.id}
                       type="button"
-                      onClick={addColor}
-                      className="flex items-center gap-1 text-sm text-[#895D2B] hover:text-[#482E1D] border border-dashed border-[#A3966A] rounded-lg px-3 py-2 transition"
+                      onClick={() => selectPaleta(paleta)}
+                      className={`text-left rounded-xl overflow-hidden border-2 transition-all ${
+                        paletaAbierta === paleta.id
+                          ? "border-[#895D2B] shadow-md"
+                          : "border-gray-200 hover:border-[#A3966A]"
+                      }`}
                     >
-                      <Plus className="w-4 h-4" /> Agregar
+                      <div className="flex h-8">
+                        {paleta.colores.map(c => (
+                          <div key={c.hex} className="flex-1" style={{ background: c.hex }} />
+                        ))}
+                      </div>
+                      <div className="px-3 py-2">
+                        <p className="text-sm font-semibold text-[#482E1D]">{paleta.nombre}</p>
+                      </div>
                     </button>
-                  )}
+                  ))}
                 </div>
+                {paletaAbierta && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">Selecciona los colores para tu catálogo:</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(PALETAS_TEMPORADA.find(p => p.id === paletaAbierta)?.colores ?? []).map(c => {
+                        const selected = form.colores.includes(c.hex);
+                        return (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => toggleColor(c.hex)}
+                            className={`rounded-lg overflow-hidden border-2 transition-all ${
+                              selected ? "border-[#895D2B] shadow-sm" : "border-gray-200 opacity-60"
+                            }`}
+                          >
+                            <div className="h-12 w-full" style={{ background: c.hex }} />
+                            <div className="px-1 py-1.5 bg-white text-center">
+                              <p className="text-[9px] font-semibold text-gray-700 leading-tight">{c.nombre}</p>
+                              <p className="text-[8px] font-mono text-gray-400 mt-0.5">{c.hex}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {form.colores.length > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 shrink-0">Paleta activa:</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {form.colores.map((c, i) => (
+                        <div
+                          key={i}
+                          title={c}
+                          className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                          style={{ background: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
