@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { LogOut, User, Home, BookOpen, Package } from "lucide-react";
 
@@ -14,6 +14,7 @@ const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
 ];
 
 function SectionInicio({ username }: { username: string }) {
+  const router = useRouter();
   return (
     <div>
       <h2 className="text-2xl font-bold text-[#482E1D] mb-1">
@@ -21,7 +22,10 @@ function SectionInicio({ username }: { username: string }) {
       </h2>
       <p className="text-gray-500 text-sm mb-8">¿Qué deseas hacer hoy?</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div className="bg-white rounded-2xl shadow-md p-6 border border-[#F0DAAE] hover:shadow-lg transition cursor-pointer">
+        <div
+          onClick={() => router.push("/dashboard/catalogo/nuevo")}
+          className="bg-white rounded-2xl shadow-md p-6 border border-[#F0DAAE] hover:shadow-lg hover:border-[#895D2B] transition cursor-pointer"
+        >
           <div className="w-12 h-12 bg-[#F0DAAE] rounded-xl flex items-center justify-center mb-4">
             <BookOpen className="w-6 h-6 text-[#895D2B]" />
           </div>
@@ -77,7 +81,11 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState("");
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<Section>("inicio");
+  const searchParams = useSearchParams();
+  const [activeSection, setActiveSection] = useState<Section>(
+    (searchParams.get("seccion") as Section) ?? "inicio"
+  );
+  const catalogoCreado = searchParams.get("created") === "true";
 
   useEffect(() => {
     const getUser = async () => {
@@ -150,6 +158,11 @@ export default function DashboardPage() {
 
         {/* Main content */}
         <main className="flex-1 overflow-auto p-8">
+          {catalogoCreado && activeSection === "catalogos" && (
+            <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm text-center">
+              ¡Catálogo creado exitosamente!
+            </div>
+          )}
           {activeSection === "inicio" && <SectionInicio username={username} />}
           {activeSection === "catalogos" && <SectionCatalogos />}
           {activeSection === "productos" && <SectionProductos />}
